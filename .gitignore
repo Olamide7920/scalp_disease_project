@@ -1,0 +1,16 @@
+# Ignore all image files in training_hair
+src/self/hair_spotter/training_hair/**/*.jpg
+src/self/hair_spotter/training_hair/**/*.png
+src/self/hair_spotter/training_hair/**/*.jpeg
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# VS Code settings
+.vscode/
