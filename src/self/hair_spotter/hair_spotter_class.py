@@ -16,8 +16,8 @@ class HairClassifier:
         # Use GPU if available, otherwise CPU
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # Load a pre-trained ResNet18 model
-        self.model = models.resnet18(pretrained=True)
-        # Replace the final layer to output 2 classes: hair, not hair
+        from torchvision.models import ResNet18_Weights
+        self.model = models.resnet18(weights=ResNet18_Weights.DEFAULT)        # Replace the final layer to output 2 classes: hair, not hair
         self.model.fc = nn.Linear(self.model.fc.in_features, 2)
         self.model = self.model.to(self.device)
         # Define image preprocessing steps
@@ -28,18 +28,31 @@ class HairClassifier:
         ])
 
     def get_dataloaders(self):
-        """
-        Create PyTorch DataLoaders for training and validation.
-        Assumes data_dir contains 'hair' and 'not_hair' subfolders.
-        """
+    
         dataset = datasets.ImageFolder(self.data_dir, transform=self.transform)
+
+        cleaned_samples = []
+        for path, label in dataset.samples:
+            norm_path = os.path.normpath(path)
+            if os.path.exists(norm_path):
+                cleaned_samples.append((norm_path, label))
+            else:
+                print(f"[WARNING] Missing file skipped: {norm_path}")
+
+        dataset.samples = cleaned_samples
+        dataset.imgs = cleaned_samples  # required by torchvision
+
         # Split dataset: 80% train, 20% validation
         train_size = int(0.8 * len(dataset))
         val_size = len(dataset) - train_size
         train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
         val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
+
         return train_loader, val_loader
+
+
 
     def train(self, epochs=5, lr=1e-3):
         """

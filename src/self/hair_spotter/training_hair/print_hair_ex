@@ -1,0 +1,16 @@
+from torchvision import datasets, transforms
+from PIL import Image
+
+data_dir = "src/self/hair_spotter/training_hair"
+
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
+
+dataset = datasets.ImageFolder(data_dir, transform=transform)
+
+print("First 5 images used in run_hair_spotter:")
+for i in range(min(5, len(dataset.samples))):
+    img_path, label = dataset.samples[i]
+    print(img_path)

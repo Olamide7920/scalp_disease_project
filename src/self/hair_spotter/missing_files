@@ -1,0 +1,21 @@
+import os
+
+def list_missing_files(base_dir):
+    missing_files = []
+    for root, dirs, files in os.walk(base_dir):
+        for file in files:
+            file_path = os.path.join(root, file)
+            if not os.path.exists(file_path):
+                missing_files.append(file_path)
+    return missing_files
+
+if __name__ == "__main__":
+    # Change this to your dataset directory
+    base_dir = "src/self/hair_spotter/training_hair"
+    missing = list_missing_files(base_dir)
+    if missing:
+        print("Missing files:")
+        for f in missing:
+            print(f)
+    else:
+        print("No missing files found.")
