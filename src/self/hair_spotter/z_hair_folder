@@ -1,0 +1,28 @@
+import os
+import shutil
+from hair_spotter_class import HairClassifier
+
+# Path to your trained weights (if you saved them)
+weights_path = "path/to/your/hair_classifier_weights.pth"
+
+# Initialize classifier
+hc = HairClassifier(data_dir="src/self/hair_spotter/training_hair")
+hc.load_weights(weights_path)
+
+# Directory with images to classify
+source_dir = "src/ddi/datasets"
+# Directory to save images classified as hair
+hair_only_dir = "src/ddi/hair_only"
+os.makedirs(hair_only_dir, exist_ok=True)
+
+# List all image files
+image_files = [f for f in os.listdir(source_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
+
+for img_file in image_files:
+    img_path = os.path.join(source_dir, img_file)
+    result = hc.predict(img_path)
+    if result == "hair":
+        shutil.copy(img_path, os.path.join(hair_only_dir, img_file))
+        print(f"Copied {img_file} to hair_only dataset.")
+
+print("Done. All hair images have been copied to:", hair_only_dir)

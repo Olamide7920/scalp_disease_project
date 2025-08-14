@@ -1,7 +1,7 @@
 import os
-from torchvision import datasets, transforms, models
-from torch.utils.data import DataLoader
 import torch
+from torchvision import datasets, transforms, models
+from torch.utils.data import DataLoader, random_split
 import torch.nn as nn
 import torch.optim as optim
 
@@ -28,12 +28,15 @@ class HairClassifier:
         ])
 
     def get_dataloaders(self):
-    
+
         dataset = datasets.ImageFolder(self.data_dir, transform=self.transform)
 
         cleaned_samples = []
+        # Normalize paths and check if files exist
         for path, label in dataset.samples:
             norm_path = os.path.normpath(path)
+            # Check if the file exists after normalization
+            # This is important to ensure the path is correct across different OS
             if os.path.exists(norm_path):
                 cleaned_samples.append((norm_path, label))
             else:
@@ -42,23 +45,26 @@ class HairClassifier:
         dataset.samples = cleaned_samples
         dataset.imgs = cleaned_samples  # required by torchvision
 
-        # Split dataset: 80% train, 20% validation
-        train_size = int(0.8 * len(dataset))
-        val_size = len(dataset) - train_size
-        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+        # Split dataset: 70% train, 15% val, 15% test
+        total_size = len(dataset)
+        train_size = int(0.7 * total_size)
+        val_size = int(0.15 * total_size)
+        test_size = total_size - train_size - val_size
+
+        train_dataset, val_dataset, test_dataset = torch.utils.data.random_split(
+            dataset, [train_size, val_size, test_size]
+        )
 
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True, num_workers=self.num_workers)
         val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
+        test_loader = DataLoader(test_dataset, batch_size=self.batch_size, shuffle=False, num_workers=self.num_workers)
 
-        return train_loader, val_loader
+        return train_loader, val_loader, test_loader
 
-
-
-    def train(self, epochs=5, lr=1e-3):
+    def train(self, train_loader, epochs=1, lr=0.001):
         """
-        Train the classifier on the dataset.
+        Train the model using the provided DataLoader.
         """
-        train_loader, val_loader = self.get_dataloaders()
         criterion = nn.CrossEntropyLoss()  # Loss function for classification
         optimizer = optim.Adam(self.model.parameters(), lr=lr)  # Adam optimizer
         for epoch in range(epochs):
