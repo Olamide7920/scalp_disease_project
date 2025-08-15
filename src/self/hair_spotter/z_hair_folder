@@ -3,14 +3,14 @@ import shutil
 from hair_spotter_class import HairClassifier
 
 # Path to your trained weights (if you saved them)
-weights_path = "path/to/your/hair_classifier_weights.pth"
+weights_path = "src/self/hair_spotter/weights_3.pth"
 
 # Initialize classifier
 hc = HairClassifier(data_dir="src/self/hair_spotter/training_hair")
 hc.load_weights(weights_path)
 
 # Directory with images to classify
-source_dir = "src/ddi/datasets"
+source_dir = "datasets/ddi"
 # Directory to save images classified as hair
 hair_only_dir = "src/ddi/hair_only"
 os.makedirs(hair_only_dir, exist_ok=True)

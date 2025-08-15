@@ -1,0 +1,47 @@
+import requests
+from bs4 import BeautifulSoup
+import os
+
+url = "https://dermnetnz.org/topics/hair-loss"
+base_url = "https://dermnetnz.org"
+output_dir = "dermnet_hair"
+os.makedirs(output_dir, exist_ok=True)
+
+response = requests.get(url)
+soup = BeautifulSoup(response.text, "html.parser")
+
+img_tags = soup.find_all("img")
+
+for idx, img in enumerate(img_tags):
+    img_url = img.get("src")
+    if img_url:
+        # Handle relative URLs
+        if img_url.startswith("/"):
+            img_url = base_url + img_url
+        elif not img_url.startswith("http"):
+            continue  # skip non-image src
+        try:
+            img_data = requests.get(img_url).content
+            ext = img_url.split('.')[-1].split('?')[0]
+            filename = f"hair_loss_{idx}.{ext}"
+            with open(os.path.join(output_dir, filename), "wb") as f:
+                f.write(img_data)
+            print(f"Downloaded {filename}")
+        except Exception as e:
+            print(f"Failed to download {img_url}: {e}")
+
+print("Download complete.")
+
+import shutil
+
+dermnet_hair_dir = "dermnet_hair"
+hair_only_dir = "src/ddi/hair_only"
+
+os.makedirs(hair_only_dir, exist_ok=True)
+
+for img_file in os.listdir(dermnet_hair_dir):
+    if img_file.lower().endswith(('.jpg', '.jpeg', '.png')):
+        src_path = os.path.join(dermnet_hair_dir, img_file)
+        dst_path = os.path.join(hair_only_dir, img_file)
+        shutil.copy(src_path, dst_path)
+        print(f"Copied {img_file} to hair_only folder")
