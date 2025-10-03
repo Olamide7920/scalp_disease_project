@@ -62,21 +62,18 @@ class HairClassifier:
         return train_loader, val_loader, test_loader
 
     def train(self, train_loader, epochs=1, lr=0.001):
-        """
-        Train the model using the provided DataLoader.
-        """
-        criterion = nn.CrossEntropyLoss()  # Loss function for classification
-        optimizer = optim.Adam(self.model.parameters(), lr=lr)  # Adam optimizer
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(self.model.parameters(), lr=lr)
         for epoch in range(epochs):
-            self.model.train()  # Set model to training mode
+            self.model.train()
             running_loss = 0.0
             for inputs, labels in train_loader:
                 inputs, labels = inputs.to(self.device), labels.to(self.device)
-                optimizer.zero_grad()           # Clear gradients
-                outputs = self.model(inputs)    # Forward pass
-                loss = criterion(outputs, labels)  # Compute loss
-                loss.backward()                 # Backpropagation
-                optimizer.step()                # Update weights
+                optimizer.zero_grad()
+                outputs = self.model(inputs)
+                loss = criterion(outputs, labels)
+                loss.backward()
+                optimizer.step()
                 running_loss += loss.item()
             print(f"Epoch {epoch+1}/{epochs}, Loss: {running_loss/len(train_loader):.4f}")
 

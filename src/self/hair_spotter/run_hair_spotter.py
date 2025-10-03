@@ -2,6 +2,7 @@ from hair_spotter_class import HairClassifier
 import torch
 from sklearn.metrics import f1_score
 import numpy as np
+import matplotlib.pyplot as plt
 
 def evaluate(model, data_loader, device, set_name="Set"):
     model.eval()
@@ -25,15 +26,29 @@ def main():
     hc = HairClassifier(data_dir=data_dir)
     train_loader, val_loader, test_loader = hc.get_dataloaders()
 
+    epoch_accuracies = []
+
     # Train and save weights after each epoch, print validation metrics
     for epoch in range(1, 6):  # 5 epochs
-        hc.train(train_loader, epochs=1)
+        print(f"--- Epoch {epoch} ---")
+        hc.train(train_loader, epochs=1)  # Should print loss for this epoch
         weights_path = f"src/self/hair_spotter/hair_classifier_weights_epoch{epoch}.pth"
         torch.save(hc.model.state_dict(), weights_path)
         print(f"Model weights saved to {weights_path}")
 
-        print(f"Epoch {epoch}:")
-        evaluate(hc.model, val_loader, hc.device, set_name="Validation")
+        val_acc, _ = evaluate(hc.model, val_loader, hc.device, set_name="Validation")
+        epoch_accuracies.append(val_acc)
+
+    # Plot accuracy per epoch (after all epochs)
+    plt.figure()
+    plt.plot(range(1, 6), epoch_accuracies, marker='o')
+    plt.xlabel('Epoch')
+    plt.ylabel('Validation Accuracy (%)')
+    plt.title('Validation Accuracy per Epoch')
+    plt.grid(True)
+    plt.ylim(80, 100)  # Set y-axis from 80% to 100%
+    plt.savefig("accuracy_per_epoch.png")
+    plt.show()
 
     # After training, evaluate on test set
     print("Final Test Set Evaluation:")
