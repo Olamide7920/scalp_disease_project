@@ -1,0 +1,9 @@
+<html>
+<head><title>Pixels</title></head>
+<body>
+<script>if("browsingTopics"in document&&document.featurePolicy.allowsFeature("browsing-topics"))document.browsingTopics()</script>
+
+<img src="https://ids.ad.gt/api/v1/openx?openx_id=4324694c-de28-43c3-b3a6-0a1db16fb536&id=AU1D-0100-001760727558-563T8WAQ-D0IM&auid=AU1D-0100-001760727558-563T8WAQ-D0IM&gdpr=0"><img src="https://cm.g.doubleclick.net/pixel?google_nid=openx&google_cm&google_sc"><img src="https://cm.g.doubleclick.net/pixel?google_nid=openx&google_hm=NDYwYmEzZTMtOWVkMy0yMjliLWY1YmQtNDRmNDZjZjJiNDUy"><img src="https://match.adsrvr.org/track/cmf/openx?oxid=6a647029-57a4-7c3f-e05d-1e4da6107a32&gdpr=0"><img src="https://pr-bh.ybp.yahoo.com/sync/openx/fea3166d-c708-ee76-d18a-08b85947b77b?gdpr=0"><img src="https://sync-tm.everesttech.net/upi/pid/ny75r2x0?redir=https%3A%2F%2Fus-u.openx.net%2Fw%2F1.0%2Fsd%3Fid%3D537148856%26val%3D%24%7BTM_USER_ID%7D"><img src="https://ad.turn.com/r/cs?pid=9&gdpr=0">
+
+</body>
+</html>
