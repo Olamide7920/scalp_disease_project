@@ -1,0 +1,163 @@
+import os
+import io
+import base64
+from typing import List, Optional, Dict
+
+import numpy as np
+from PIL import Image
+
+# Optional deps: install with:
+# pip install google-cloud-aiplatform tensorflow pillow numpy torch torchvision
+
+# Choose one path: Vertex AI (cloud) or local SavedModel (tf)
+USE_VERTEX = True  # set False to use local SavedModel path
+
+# --- Vertex AI settings (if using hosted MedGemma) ---
+PROJECT = "your-gcp-project"
+REGION = "us-central1"
+ENDPOINT_ID = "YOUR_ENDPOINT_ID"  # numeric id or resource id
+# Endpoint resource: f"projects/{PROJECT}/locations/{REGION}/endpoints/{ENDPOINT_ID}"
+VERTEX_ENDPOINT = f"projects/{PROJECT}/locations/{REGION}/endpoints/{ENDPOINT_ID}"
+
+# --- Local TF SavedModel path (if you exported MedGemma) ---
+LOCAL_SAVED_MODEL_DIR = "models/medgemma_saved_model"
+
+# Class labels (adjust to your model's label order)
+CLASS_LABELS = [
+    "alopecia_areata",
+    "androgenetic_alopecia",
+    "telogen_effluvium",
+    "tinea_capitis",
+    "scalp_psoriasis",
+    "normal",
+    # add/remove according to your model
+]
+
+
+class ScalpDiseaseDetector:
+    def __init__(self,
+                 class_labels: List[str] = CLASS_LABELS,
+                 use_vertex: bool = USE_VERTEX,
+                 vertex_endpoint: Optional[str] = None,
+                 local_saved_model: Optional[str] = None):
+        self.labels = class_labels
+        self.use_vertex = use_vertex
+        self.vertex_endpoint = vertex_endpoint or VERTEX_ENDPOINT
+        self.local_saved_model = local_saved_model or LOCAL_SAVED_MODEL_DIR
+        self._vertex_client = None
+        self._tf_model = None
+
+        if self.use_vertex:
+            # lazy-import to avoid hard dependency unless used
+            from google.cloud import aiplatform_v1
+            self._vertex_client = aiplatform_v1.PredictionServiceClient()
+        else:
+            import tensorflow as tf
+            # load saved model
+            self._tf = tf
+            if not os.path.isdir(self.local_saved_model):
+                raise FileNotFoundError(f"SavedModel not found at {self.local_saved_model}")
+            self._tf_model = tf.keras.models.load_model(self.local_saved_model)
+            self._tf_model.trainable = False
+
+    @staticmethod
+    def _prep_pil_image(img: Image.Image, image_size: int = 224) -> bytes:
+        """Resize + normalize to bytes (JPEG) — Vertex AI examples use base64 bytes."""
+        img = img.convert("RGB")
+        img = img.resize((image_size, image_size), Image.BILINEAR)
+        bio = io.BytesIO()
+        img.save(bio, format="JPEG", quality=95)
+        return bio.getvalue()
+
+    @staticmethod
+    def _preprocess_for_tf(img: Image.Image, image_size: int = 224) -> np.ndarray:
+        img = img.convert("RGB").resize((image_size, image_size))
+        arr = np.array(img).astype(np.float32) / 255.0
+        # If the model expects ImageNet normalization, uncomment:
+        # mean = np.array([0.485, 0.456, 0.406])
+        # std = np.array([0.229, 0.224, 0.225])
+        # arr = (arr - mean) / std
+        return np.expand_dims(arr, 0)  # batch dim
+
+    def predict_image(self, image_path: str) -> Dict[str, float]:
+        """Return mapping label->score for single image."""
+        img = Image.open(image_path)
+        if self.use_vertex:
+            return self._predict_vertex(img)
+        else:
+            return self._predict_local_tf(img)
+
+    def _predict_vertex(self, pil_img: Image.Image) -> Dict[str, float]:
+        # prepare bytes, encode base64
+        img_bytes = self._prep_pil_image(pil_img)
+        b64 = base64.b64encode(img_bytes).decode("utf-8")
+        instance = {"content": b64}  # common pattern; adapt if your endpoint expects different key
+
+        request = {
+            "endpoint": self.vertex_endpoint,
+            "instances": [instance],
+            # parameters optional: {"confidenceThreshold": 0.1}
+        }
+        # call Vertex AI prediction
+        response = self._vertex_client.predict(
+            endpoint=self.vertex_endpoint,
+            instances=[instance],
+        )
+        # response.predictions is a list; each prediction can be either scores or class/score dict
+        preds = response.predictions[0]
+        # Attempt to parse common shapes:
+        if isinstance(preds, dict):
+            # e.g., {"scores": [...], "labels": [...]}
+            scores = preds.get("scores") or preds.get("probabilities") or preds.get("prediction_scores")
+            labels = preds.get("labels") or self.labels
+        else:
+            # assume list of scores
+            scores = preds
+            labels = self.labels
+
+        scores = list(map(float, scores))
+        # map labels to scores; clip/truncate lengths
+        out = {}
+        for i, s in enumerate(scores):
+            label = labels[i] if i < len(labels) else f"class_{i}"
+            out[label] = s
+        return out
+
+    def _predict_local_tf(self, pil_img: Image.Image) -> Dict[str, float]:
+        arr = self._preprocess_for_tf(pil_img)
+        preds = self._tf_model.predict(arr)  # shape (1, num_classes)
+        probs = self._tf.softmax(preds[0]) if hasattr(self._tf, "nn") and hasattr(self._tf.nn, "softmax") else \
+            (np.exp(preds[0]) / np.sum(np.exp(preds[0])))
+        out = {}
+        for i, p in enumerate(probs):
+            label = self.labels[i] if i < len(self.labels) else f"class_{i}"
+            out[label] = float(p)
+        return out
+
+    def predict_folder(self, folder: str, ext: Optional[List[str]] = None) -> Dict[str, Dict[str, float]]:
+        ext = ext or [".jpg", ".jpeg", ".png"]
+        results = {}
+        for fname in os.listdir(folder):
+            if not any(fname.lower().endswith(e) for e in ext):
+                continue
+            path = os.path.join(folder, fname)
+            try:
+                preds = self.predict_image(path)
+                results[fname] = preds
+            except Exception as e:
+                results[fname] = {"error": str(e)}
+        return results
+
+
+if __name__ == "__main__":
+    # Example usage:
+    # - If using Vertex AI, configure PROJECT/REGION/ENDPOINT_ID above and set USE_VERTEX=True
+    # - If using local SavedModel, set USE_VERTEX=False and set LOCAL_SAVED_MODEL_DIR to your model dir
+    detector = ScalpDiseaseDetector(use_vertex=USE_VERTEX)
+    sample = "datasets/trichotillomania/trichotillomania_0.jpg"  # change to your sample
+    out = detector.predict_image(sample)
+    print("Predictions:", out)
+    # Or predict an entire folder:
+    # results = detector.predict_folder("datasets/scalp_disease/alopecia_areata")
+    # for k, v in results.items():
+    #     print(k, v)
