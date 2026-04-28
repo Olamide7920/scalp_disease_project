@@ -1,0 +1,22 @@
+import os
+import csv
+
+repo_base_url = "https://raw.githubusercontent.com/Olamide7920/scalp_disease_project/main"
+
+dataset_root = "datasets"
+
+rows = []
+
+for root, dirs, files in os.walk(dataset_root):
+    for file in files:
+        if file.endswith((".jpg", ".jpeg", ".png")):
+            relative_path = os.path.join(root, file).replace("\\", "/")
+            full_url = f"{repo_base_url}/{relative_path}"
+            rows.append([full_url, relative_path])
+
+with open("paz_labels.csv", "w", newline="") as f:
+    writer = csv.writer(f)
+    writer.writerow(["image_url", "relative_path"])
+    writer.writerows(rows)
+
+print("CSV created!")
